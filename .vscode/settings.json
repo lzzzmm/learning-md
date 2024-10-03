@@ -1,5 +1,5 @@
 {
     "pasteImage.path": "images",
-    "pasteImage.prefix": "mk-",
-    "pasteImage.insertPattern": "![${imageFileName}](..\\\\${imageFilePath}${imageSyntaxSuffix}"
+    "pasteImage.prefix": "",
+    "pasteImage.insertPattern": "![${imageFileName}](./${imageFilePath}${imageSyntaxSuffix}"
 }
