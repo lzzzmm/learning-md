@@ -1,4 +1,5 @@
 {
     "pasteImage.path": "images",
-    "pasteImage.insertPattern": "${imageSyntaxPrefix}${imageFilePath}${imageSyntaxSuffix}"
+    "pasteImage.basePath": "${currentFileDir}",
+    "pasteImage.insertPattern": "![${imageFileName}](./${imageFilePath}${imageSyntaxSuffix}"
 }
