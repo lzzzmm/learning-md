@@ -1,11 +1,13 @@
 # 1-asp.net core-Filter-基础
 ## 1、原理
 筛选器是可以在请求管道中的特定阶段之前或之后运行代码。
+
 ![2024-10-14-03-15-53.png](./images/2024-10-14-03-15-53.png)
 
 只有当路由选择了MVC Action之后，过滤器管道才有机会执行。
 
 过滤器有多种：
+
 ![2024-10-14-03-17-32.png](./images/2024-10-14-03-17-32.png)
 
 - Authorization Filters（授权过滤器）
@@ -48,6 +50,7 @@ public class EasyTestController : ControllerBase{}
 过滤器方法参数会继承FilterContext，而FilterContext继承ActionContext。
 
 ActionContext：
+
 ![2024-10-14-08-08-07.png](./images/2024-10-14-08-08-07.png)
 
 下面对各个字段进行解释，不全，可以直接到编辑器看源代码。
