@@ -112,6 +112,7 @@ public class ShoppingResourceFilter : IResourceFilter
     }
 }
 ```
+![2024-10-17-11-34-23.png](./images/2024-10-17-11-34-23.png)
 
 
 ## 5、过滤器类型
@@ -124,15 +125,255 @@ public class ShoppingResourceFilter : IResourceFilter
 
 ### 5.2 Resource Filters
 实现 IResourceFilter 或 IAsyncResourceFilter 接口（其他过滤器都有这两种类型的接口，如命名，一个同步一个异步）
+#### 5.2.1 ResourceExecutingContext、ResourceExecutedContext
+ResourceExecutingContext：
+- Result:获取或设置该Action的执行结果
+- ValueProviderFactories :Action参数绑定源提供器工厂，比如 Form、Route、QueryString、JQueryForm、FormFile等
 
-#### 5.2.1 IResourceFilter
+ResourceExecutedContext:
+- Canceled : 指示Action的执行是否已取消
+- Exception : 如果捕获到未处理的异常，会存放到此处
+- ExceptionDispatchInfo 
+- ExceptionHandled : 指示异常是否已被处理
+- Result : 获取或设置该Action的执行结果
+
+一旦设置了Result，就可以使过滤器管道短路。
+对于ResourceExecutedContext，有两种方式来处理异常：
+- 将Exception或ExceptionDispatchInfo置为null
+- 将ExceptionHandled置为true
+
+#### 5.2.2 IResourceFilter
 ```cs
+public class ShoppingResourceFilterV2 : IResourceFilter, IScopedDependency
+{
+    public void OnResourceExecuting(ResourceExecutingContext context)
+    {
+        if (context.RouteData.Values["action"] is "FilterTest")  // action是方法名
+        {
+            var id = context.RouteData.Values["id"];
+            if (id != null)
+            {
+                if (id is not 1) // 获取的是"1"
+                    context.Result = new BadRequestResult();
+            }
+        }
+    }
 
+    public void OnResourceExecuted(ResourceExecutedContext context)
+    {
+    }
+}
 
 ```
+
+#### 5.2.3 IAsyncResourceFilter
+```cs
+public class ShoppingResourceFilterSimpleV2 : IAsyncResourceFilter
+{
+    public async Task OnResourceExecutionAsync(ResourceExecutingContext context, ResourceExecutionDelegate next)
+    {
+        if (context.RouteData.Values["action"] is "document")
+        {
+            var id = context.RouteData.Values["id"];
+            if (id != null)
+            {
+                if (id is not 1)
+                    context.Result = new BadRequestResult();
+            }
+        }
+        // 执行资源
+        var executedContext = await next();
+
+        if (executedContext.Exception != null)
+        {
+            Log.Error("nononononononono~");
+        }
+    }
+}
+```
 ### 5.3 Action Filters
+IActionFilter或IAsyncActionFilter接口。
+除了接口，由于操作过滤器使用率是最高的，所以框架还提供了一个抽象类ActionFilterAttribute，该抽象类实现了多个接口，还继承了Attribute，允许我们以特性的方式使用。
 
+#### 5.3.1 ActionExecutingContext 、 ActionExecutedContext 
+ActionExecutingContext：
+- Result 
+- ActionArguments ：Action的参数字典，key是参数名，value是参数值
+- Controller ：获取该Action所属的Controller
+
+ActionExecutedContext ：
+- Canceled 
+- Controller ：获取该Action所属的Controller
+- Exception 
+- ExceptionDispatchInfo 
+- ExceptionHandled 
+- Result ：获取或设置该Action的执行结果
+
+#### 5.3.2 ActionFilterAttribute
+```cs
+public class ShoppingActionFilterAttribute : ActionFilterAttribute, IScopedDependency
+{
+    private readonly ILogger _logger;
+
+    public ShoppingActionFilterAttribute(ILogger logger)
+    {
+        _logger = logger;
+    }
+    public override void OnActionExecuting(ActionExecutingContext context)
+    {
+        _logger.Information("action 执行前。。。");
+    }
+
+    public override void OnActionExecuted(ActionExecutedContext context)
+    {
+        _logger.Information("action 执行后。。。");
+    }
+
+    // 结果生成但尚未发送到客户端时被调用，用于在结果返回给客户端之前进行一些处理
+    public override void OnResultExecuting(ResultExecutingContext context)
+    {
+        _logger.Information("return result 执行前。。。");
+    }
+    // 在结果（例如视图、JSON 数据等）已经生成并发送到客户端之后被调用
+    public override void OnResultExecuted(ResultExecutedContext context)
+    {
+        Thread.Sleep(4000);
+        _logger.Information("return result 执行后。。。");
+    }
+}
+```
+
+```cs
+    [Route("document/{id:int}"), HttpGet]
+    [ServiceFilter(typeof(ShoppingActionFilterAttribute))]
+    public async Task<IActionResult> FilterTest(int actionId)
+    {
+        Console.WriteLine("测试过滤器...");
+        //throw  new Exception("测试异常过滤器...");
+        return Ok(new {id=1});
+    }
+```
+![2024-10-17-12-28-01.png](./images/2024-10-17-12-28-01.png)
+
+ActionFilterAttribute同时实现了同步和异步接口，不过，我们在使用时，只需要实现同步或异步接口就可以了，不要同时实现。 如果在一个类中同时实现了异步和同步接口，则仅会调用异步接口。
+
+#### 5.3.3 IActionFilter
+```cs
+public class ShoppingActionFilter: IActionFilter, IScopedDependency
+{
+    private readonly ILogger _log;
+    private Stopwatch _stopwatch;
+
+    public ShoppingActionFilter(ILogger log)
+    {
+        _log = log;
+    }
+    public void OnActionExecuting(ActionExecutingContext context)
+    {
+        _stopwatch = Stopwatch.StartNew();
+        _log.Information($"{DateTimeOffset.Now}:begin");
+        // if(context.ActionArguments["actionId"] is 1)
+        //     context.Result = new BadRequestResult();
+    }
+
+    public void OnActionExecuted(ActionExecutedContext context)
+    {
+        _stopwatch.Stop();
+        var elapsed = _stopwatch.Elapsed;
+        _log.Information($"{DateTimeOffset.Now}:end:{elapsed}");
+        if (!context.ExceptionHandled)
+        {
+            _log.Error("action 捕获到异常。。。");
+            context.ExceptionHandled = true;
+        }
+    }
+}
+```
 ### 5.4 Exception Filters
+异常过滤器，可以捕获Controller创建时（也就是只捕获构造函数中抛出的异常）、模型绑定、Action Filter和Action中抛出的未处理异常。
 
+如果Action执行过程中或非首个操作过滤器中抛出异常，首先捕获到异常的是操作过滤器的OnActionExecuted，而不是异常过滤器。但是，如果在Controller创建时抛出异常，那首先捕获到异常的就是异常过滤器了。
+
+实现接口IExceptionFilter或IAsyncExceptionFilter。
+### 5.4.1 ExceptionContext 
+- Exception ：捕获到的未处理异常
+- ExceptionDispatchInfo 
+- ExceptionHandled ：指示异常是否已被处理，true：表示异常已被处理，异常不会再向上抛出，false：表示异常未被处理，异常仍会继续向上抛出
+- Result ：如果设置了结果，也表示异常已被处理，异常不会再向上抛出
+
+#### 5.4.2 ShoppingExceptionFilter
+
+```cs
+public class ShoppingExceptionFilter : IExceptionFilter, IScopedDependency
+{
+    public void OnException(ExceptionContext context)
+    {
+        if (!context.ExceptionHandled)
+        {
+            Console.WriteLine("Exception filter 捕获。。。");
+            context.Result = new BadRequestObjectResult("exception filter");
+            // 标记异常已处理
+            context.ExceptionHandled = true;
+        }
+    }
+}
+```
+```cs
+    [Route("document/{id:int}"), HttpGet]
+    [ServiceFilter(typeof(ShoppingExceptionFilter))]
+    public async Task<IActionResult> FilterTest(int actionId)
+    {
+        Console.WriteLine("测试过滤器...");
+        throw  new Exception("测试异常过滤器...");
+        return Ok(new {id=1});
+    }
+```
 ### 5.5 Result Filters
+结果过滤器，包裹了操作结果的执行。操作结果的执行可以是Razor视图的处理操作，也可以是Json结果的序列化操作等。
 
+实现IResultFilter或IAsyncResultFilter接口。
+
+仅当Action或Action Filters生成Result时，才会执行结果过滤器。像授权、资源过滤器使管道短路或异常过滤器通过生成Result来处理异常等，都不会执行结果过滤器。
+
+#### 5.5.1 ResultExecutingContext 、ResultExecutedContext 
+ResultExecutingContext：
+- Controller 
+- Result 
+- Cancel 
+
+ResultExecutedContext：
+- Canceled 
+- Controller 
+- Exception 
+- ExceptionDispatchInfo 
+- ExceptionHandled 
+- Result 
+
+#### 5.5.2 ResultFilterAttribute
+```cs
+public class ShoppingResultFilterAttribute : ResultFilterAttribute, IScopedDependency
+{
+    public override void OnResultExecuting(ResultExecutingContext context)
+    {
+        context.HttpContext.Response.Headers["merch"] = "cedar";
+        Console.WriteLine(context.Result);
+        var hasStarted = context.HttpContext.Response.HasStarted; // false
+    }
+
+    public override void OnResultExecuted(ResultExecutedContext context)
+    {
+        if (context.HttpContext.Response.HasStarted) // 用于检查 HTTP 响应是否已经开始发送到客户端 true
+        {
+            Console.WriteLine("Response has started");
+        }
+    }
+}
+```
+
+## 6、内置筛选器属性
+- ActionFilterAttribute
+- ExceptionFilterAttribute
+- ResultFilterAttribute
+- FormatFilterAttribute
+- ServiceFilterAttribute
+- TypeFilterAttribute
