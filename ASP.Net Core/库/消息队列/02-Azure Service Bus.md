@@ -91,6 +91,7 @@ public async Task PublishSendMessage()
     }
 }
 ```
+![2024-10-21-08-06-42.png](./images/2024-10-21-08-06-42.png)
 
 批量发送消息：
 ```cs
@@ -152,6 +153,8 @@ public async Task ConsumerGetMessage()
     }
 }
 ```
+![2024-10-21-08-07-26.png](./images/2024-10-21-08-07-26.png)
+![2024-10-21-08-08-18.png](./images/2024-10-21-08-08-18.png)
 
 批量接收消息：
 ```cs

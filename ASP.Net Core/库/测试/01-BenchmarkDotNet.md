@@ -94,3 +94,55 @@ public class BenchmarkTests
     [ParamsAllValues]
     public CustomEnum E { get; set; }
     ```
+### 3.2 基准和工作基线
+- `[Benchmark(Baseline = true)]`:将基准方法或作业标记为基线
+    ```cs
+    public class IntroBenchmarkBaseline
+    {
+        [Benchmark]
+        public void Time50() => Thread.Sleep(50);
+
+        [Benchmark(Baseline = true)]
+        public void Time100() => Thread.Sleep(100);
+
+        [Benchmark]
+        public void Time150() => Thread.Sleep(150);
+    }
+    ```
+
+- `[GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]`:同一类中拥有多个基线,将它们按类别分开对比
+    ```cs
+    [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
+    [CategoriesColumn]
+    public class IntroCategoryBaseline
+    {
+        [BenchmarkCategory("Fast"), Benchmark(Baseline = true)]
+        public void Time50() => Thread.Sleep(50);
+
+        [BenchmarkCategory("Fast"), Benchmark]
+        public void Time100() => Thread.Sleep(100);
+
+        [BenchmarkCategory("Slow"), Benchmark(Baseline = true)]
+        public void Time550() => Thread.Sleep(550);
+
+        [BenchmarkCategory("Slow"), Benchmark]
+        public void Time600() => Thread.Sleep(600);
+    }
+    ```
+
+### 3.3 设置和清理
+执行一组基准测试之前和之后的逻辑。
+- `[GlobalSetup]`:在基准参数初始化之后和所有基准方法调用之前,仅在每个基准方法上执行一次
+- `[GlobalCleanup]`:所有基准方法执行之后调用
+- `[IterationSetup]`:在每次基准测试调用之前执行一次
+- `[IterationCleanup]`:在每次基准测试执行后调用一次
+
+### 3.4 结果生成
+- `[MeanColumn]`：显示基准测试的平均执行时间。
+- `[MedianColumn]`：显示基准测试的中位数执行时间。
+- `[StdDevColumn]`：显示基准测试的标准差，反映性能波动。
+- `[MinColumn]`：显示最小执行时间。
+- `[MaxColumn]`：显示最大执行时间。
+- `[AllStatisticsColumn]`：生成所有统计特性的列，包括平均值、标准差、最小值、最大值和中位数。
+
+![2024-10-22-02-21-57.png](./images/2024-10-22-02-21-57.png)

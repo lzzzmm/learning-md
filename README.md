@@ -19,6 +19,8 @@
             - MassTransit
 - Docker
 - Redis
-- 设计模式
+- 开发须知
+    - 设计模式
+    - SOLID
 - Lua
 

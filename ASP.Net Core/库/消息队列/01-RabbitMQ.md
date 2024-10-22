@@ -93,11 +93,13 @@ public async Task PublishSendMessage()
 }
 ```
 
+![2024-10-21-07-55-18.png](./images/2024-10-21-07-55-18.png)
+
 ### 2.3 消费者
 ```cs
 public async Task ConsumerGetMessage()
 {
-    var queueName = "queue_name4";
+    var queueName = "queue_name";
     var channel = _connection.CreateModel();
     // 创建消费者实例
     var consumer = new EventingBasicConsumer(channel);
@@ -146,6 +148,8 @@ public async Task ConsumerGetMessage()
     channel.BasicConsume(queueName, false, consumer);
 }
 ```
+![2024-10-21-07-57-33.png](./images/2024-10-21-07-57-33.png)
+![2024-10-21-07-57-58.png](./images/2024-10-21-07-57-58.png)
 
 ## 3、交换机类型
 ### 3.1 direct

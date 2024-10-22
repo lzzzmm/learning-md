@@ -103,7 +103,8 @@ private void MassTransitByAzureBus(ContainerBuilder builder)
 EndpointConvention.Map<RabbitMqMessage>(new Uri("queue:queue_name")); //通过以下方式配置对应消息类型的目标地址
 await _bus.Send(message);
 ```
-
+![2024-10-21-08-19-45.png](./images/2024-10-21-08-19-45.png)
+因为前面配置了cfg.ReceiveEndpoint，所以点击发送后，程序自动接收到消息。
 #### 2.2.2 ISendEndpointProvider
 ```cs
 var serviceAddress = new Uri("queue:queue_name");
@@ -170,10 +171,103 @@ MassTransitStateMachine是MassTransit Automatonymous 库定义的，Automatonymo
 通过MassTransitStateMachine可以将事件的执行顺序逻辑编排在一个集中的状态机中，通过发送命令和订阅事件来推动状态流转，而这也正是Saga编排模式的实现。
 
 ## 4、Saga
-### 4.1 状态机
-状态机是一种程序开发范例。有很多的应用场景，其中.NET 中的async/await 的核心底层实现就是基于状态机机制。状态机分为两种：有限状态机和无限状态机。
+saga是一种设计模式，用于管理长时间运行的业务流程和复杂的状态转换。Saga 负责协调多个服务之间的交互，确保在分布式系统中实现最终一致性。
 
-有限状态机：
+ saga是由协调器管理的长期事务。saga是由事件发起的，saga编排事件，维护整个事务的状态。
+
+<hr>
+ 一个帮助理解Saga概念的例子：
+ 现在有一个在线商店，用户下单后要经过一下步骤：
+ - 1、创建订单
+ - 2、处理付款
+ - 3、发货
+
+那么对于Saga来说有以下状态与事件：
+- 状态
+    - orderCreated
+    - PaymentSucceeded
+    - orderShipped
+- 事件
+    - orderCreated事件触发创建订单过程
+    - PaymentSucceeded事件在付款成功时触发
+    - OrderShipped 事件在发货时触发
+
+步骤：
+- 当用户下单时，Saga 接收 OrderCreated 事件，状态变为 OrderCreated。
+- Saga 向付款服务发送请求，等待 PaymentSucceeded 事件。
+- 一旦收到 PaymentSucceeded，状态变为 PaymentProcessed，然后触发发货。
+- 发货后，Saga 接收 OrderShipped 事件，最终状态为 Completed
+
+
+如果在付款处理阶段失败，Saga 可以执行补偿逻辑，例如发送退款请求，确保系统的一致性。（补偿机制）
+
+ <hr>
+
+### 4.1 定义消息
+定义消息传递的结构，用CorrelationId作为唯一标识。
+```cs
+public record SubmitOrder : CorrelatedBy<Guid>
+{
+    public Guid CorrelationId { get; init; }
+    public DateTime OrderDate { get; init; }
+}
+
+public record OrderAccepted : CorrelatedBy<Guid>
+{
+    public Guid CorrelationId { get; init; }
+    public DateTime Timestamp { get; init; }
+}
+```
+
+```cs
+public record OrderShipped
+{
+    public Guid OrderId { get; init; }
+    public DateTime ShipDate { get; init; }
+}
+```
+
+### 4.2 定义Saga类
+```cs
+public class OrderSaga :
+    ISaga,
+    InitiatedBy<SubmitOrder>,
+    Orchestrates<OrderAccepted>,
+    Observes<OrderShipped, OrderSaga>
+{
+    public Guid CorrelationId { get; set; }
+
+    public DateTime? SubmitDate { get; set; }
+    public DateTime? AcceptDate { get; set; }
+    public DateTime? ShipDate { get; set; }
+
+    public async Task Consume(ConsumeContext<SubmitOrder> context)
+    {
+        SubmitDate = context.Message.OrderDate;
+    }
+
+    public async Task Consume(ConsumeContext<OrderAccepted> context)
+    {
+        AcceptDate = context.Message.Timestamp;
+    }
+    public async Task Consume(ConsumeContext<OrderShipped> context)
+    {
+        ShipDate = context.Message.ShipDate;
+    }
+
+    public Expression<Func<OrderSaga, OrderShipped, bool>> CorrelationExpression =>
+        (saga,message) => saga.CorrelationId == message.OrderId;
+}
+```
+- ISaga：这是一个基本接口，表示该类是一个 Saga，用于管理状态和业务流程。
+- InitiatedBy\<SubmitOrder\>：表示该 Saga 是由 SubmitOrder 消息触发的。这意味着当系统接收到 SubmitOrder 消息时，Saga 会被启动。
+- Orchestrates\<OrderAccepted\>：表示该 Saga 负责处理 OrderAccepted 消息。这通常是在 Saga 中更新状态或触发后续操作的逻辑。
+- Observes\<OrderShipped, OrderSaga\>：表示该 Saga 观察 OrderShipped 消息，通常用于处理与该消息相关的业务逻辑并更新 Saga 状态。
+
+OrderShipped不需要继承CorrelatedBy是因为：OrderShipped 事件通常是在 Saga 运行的过程中被观察到的。它不需要直接与 Saga 实例相关联。
+
+
+
 
 
 
