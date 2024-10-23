@@ -57,6 +57,8 @@ var databaseUpgradeResult = upGrader.PerformUpgrade();
 </ItemGroup>
 ```
 
+![2024-10-23-00-06-46.png](./images/2024-10-23-00-06-46.png)
+
 ## 获取脚本路径
 查找嵌入在单个程序集中的脚本:
 ```cs
@@ -118,9 +120,11 @@ public class DbUpProcess : IScriptPreprocessor
 ```cs
 .WithPreprocessor(new DbUpProcess())
 ```
+![2024-10-23-00-06-16.png](./images/2024-10-23-00-06-16.png)
 
 ## 生成HTML报告
 通过GenerateUpgradeHtmlReport方法生成包含所有更改的 HTML 报告的功能。然后，可以将此报告作为构件上传到您选择的部署工具。
 ```cs
 upGrader.GenerateUpgradeHtmlReport("D:\\UpgradeReport.html");
 ```
+![2024-10-23-00-04-34.png](./images/2024-10-23-00-04-34.png)

@@ -266,7 +266,59 @@ public class OrderSaga :
 
 OrderShipped不需要继承CorrelatedBy是因为：OrderShipped 事件通常是在 Saga 运行的过程中被观察到的。它不需要直接与 Saga 实例相关联。
 
+### 4.3 配置
+```cs
+services.AddMassTransit(x =>
+{
+    x.AddSaga<OrderSaga>()
+        .InMemoryRepository(); // 使用 InMemory 存储 Saga 状态
 
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host(new Uri("rabbitmq://localhost/"), h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+        // 配置接收端点（队列）
+        cfg.ReceiveEndpoint("queue_name2", ep =>
+        {
+            // 注册消费者到接收端点
+            ep.ConfigureSaga<OrderSaga>(context);
+        });
+    });
+});
+```
+
+![2024-10-23-00-36-23.png](./images/2024-10-23-00-36-23.png)
+
+### 4.4 测试
+```cs
+[Route("masstransit/saga/submit-order"), HttpGet]
+public async Task<IActionResult> RunMassTransitSaga()
+{
+    var submitOrder = new SubmitOrder
+    {
+        CorrelationId = Guid.NewGuid(),
+        OrderDate = DateTime.UtcNow
+    };
+
+    await _bus.Publish(submitOrder);
+    return Ok(submitOrder.CorrelationId);
+}
+
+[Route("massTransit/saga/update-order/{correlationId:guid}"), HttpGet]
+public async Task<IActionResult> RunMassTransitSagaUpdate([FromRoute] Guid correlationId)
+{
+    var orderAccepted = new OrderAccepted
+    {
+        CorrelationId = correlationId,
+        Timestamp = DateTime.UtcNow
+    };
+    await _bus.Publish(orderAccepted);
+    return Ok();
+}
+```
 
 
 

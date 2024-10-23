@@ -216,6 +216,7 @@ public async Task PublishSendMessageFanout()
     _connection.Close();
 }
 ```
+![2024-10-23-00-35-45.png](./images/2024-10-23-00-35-45.png)
 ### 3.3 topic
 主题类型交换机，与direct类似，但topic可以进行模糊匹配。
 
