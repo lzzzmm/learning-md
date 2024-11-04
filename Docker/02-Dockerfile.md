@@ -88,7 +88,65 @@ ADD 指令和 COPY 的格式和性质基本一致。但是在 COPY 基础上增�
 ![2024-11-02-03-47-03.png](./images/2024-11-02-03-47-03.png)
 nginx:v3是自己命名的，而“.”是搜索当前路径的DockerFile。
 
+<hr>
 
+对于DotNet练习项目，在项目根目录下文件DockerFile文件：
+```dockerfile
+# 使用官方的 .NET SDK 镜像作为构建环境
+FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
+WORKDIR /app
+
+# 复制所有项目文件
+COPY SmallShoppingApi.Initiator/*.csproj ./SmallShoppingApi.Initiator/
+COPY SmallShoppingApi.WebApi/*.csproj ./SmallShoppingApi.WebApi/
+COPY SmallShoppingApi.Core/*.csproj ./SmallShoppingApi.Core/
+COPY SmallShoppingApi.Message/*.csproj ./SmallShoppingApi.Message/
+
+# 恢复所有项目的依赖
+RUN dotnet restore SmallShoppingApi.WebApi/SmallShoppingApi.WebApi.csproj
+RUN dotnet restore SmallShoppingApi.Initiator/SmallShoppingApi.Initiator.csproj
+RUN dotnet restore SmallShoppingApi.Core/SmallShoppingApi.Core.csproj
+RUN dotnet restore SmallShoppingApi.Message/SmallShoppingApi.Message.csproj
+
+# 复制源代码
+COPY SmallShoppingApi.Initiator ./SmallShoppingApi.Initiator
+COPY SmallShoppingApi.WebApi ./SmallShoppingApi.WebApi
+COPY SmallShoppingApi.Core ./SmallShoppingApi.Core
+COPY SmallShoppingApi.Message ./SmallShoppingApi.Message
+
+# 构建和发布 Web API 项目
+RUN dotnet publish SmallShoppingApi.WebApi/SmallShoppingApi.WebApi.csproj -c Release -o /app/out
+
+# 构建阶段 `initiator`
+FROM mcr.microsoft.com/dotnet/sdk:7.0 AS initiator
+WORKDIR /app
+
+# 复制和构建数据库初始化项目
+COPY SmallShoppingApi.Initiator/*.csproj ./SmallShoppingApi.Initiator/
+COPY SmallShoppingApi.WebApi/*.csproj ./SmallShoppingApi.WebApi/
+COPY SmallShoppingApi.Core/*.csproj ./SmallShoppingApi.Core/
+COPY SmallShoppingApi.Message/*.csproj ./SmallShoppingApi.Message/
+RUN dotnet restore SmallShoppingApi.WebApi/SmallShoppingApi.WebApi.csproj
+RUN dotnet restore SmallShoppingApi.Initiator/SmallShoppingApi.Initiator.csproj
+RUN dotnet restore SmallShoppingApi.Core/SmallShoppingApi.Core.csproj
+RUN dotnet restore SmallShoppingApi.Message/SmallShoppingApi.Message.csproj
+COPY SmallShoppingApi.Initiator ./SmallShoppingApi.Initiator
+COPY SmallShoppingApi.WebApi ./SmallShoppingApi.WebApi
+COPY SmallShoppingApi.Core ./SmallShoppingApi.Core
+COPY SmallShoppingApi.Message ./SmallShoppingApi.Message
+
+RUN dotnet publish SmallShoppingApi.Initiator/SmallShoppingApi.Initiator.csproj -c Release -o /app/out
+
+# 使用官方的 ASP.NET Core 运行时镜像作为运行环境
+FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS final
+WORKDIR /app
+# 复制 Web API 发布输出
+COPY --from=build /app/out ./
+COPY --from=initiator /app/out ./  # 确保初始化项目的输出也被复制
+
+# 运行 Web API 应用
+ENTRYPOINT ["dotnet", "SmallShoppingApi.WebApi.dll"]
+```
 
 
 
