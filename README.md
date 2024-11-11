@@ -2,7 +2,8 @@
 这是开发学习路线的笔记，对于学习知识点的记录以供后续速查。所有资料来源均整理于资料合集中。
 
 ## 1. 目录
-- ASP.NET CORE
+- ASP\.NET CORE
+    - CLR Via C#
     - Attributes
     - Authentication
     - Authorization
@@ -13,12 +14,13 @@
             - Dbup
         - 测试
             - BenchmarkDotNet
-        消息队列
+        - 消息队列
             - RabbitMQ
             - Azure Service Bus
             - MassTransit
 - Docker
-- Redis
+- DB
+    - Redis
 - 开发须知
     - 设计模式
     - SOLID
