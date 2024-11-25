@@ -2,7 +2,7 @@
 SignalR用于实时双向通信，是一个\.NET Core/.NET Framework的开源实时框架. SignalR的可使用Web Socket, Server Sent Events 和 Long Polling作为底层传输方式。
 
 
-## 1 不同通信协议
+## 1 不同实时通信技术
 SignalR使用的三种底层传输技术分别是Web Socket, Server Sent Events 和 Long Polling。默认采用回落机制，从最优开始选择，如果不符合条件再往下选传输方式。也可以自己选择一种传输方式。
 
 一旦建立连接, SignalR就会开始发送keep alive消息, 检查连接是否还正常. 如果有问题, 就会抛出异常。
@@ -37,6 +37,46 @@ SignalR 首选的传输方式，如果环境支持，SignalR 会优先使用 Web
 
 当 WebSocket 和 SSE 都不可用时，SignalR 会回退到 Long Polling。
 
-
-
 ![2024-11-23-02-08-01.png](./images/2024-11-23-02-08-01.png)
+
+## 2 Hub
+SignalR 使用中心在客户端和服务器之间进行通信。
+Hub是SignalR的一个组件, 它运行在ASP\.NET Core应用里，是服务器端的一个类。
+在Hub类里面可以调用所有客户端上的方法，同样客户端也可以调用Hub类里的方法。
+
+提供两种内置中心协议：
+- 基于JSON的文本协议
+- 基于MessagePack的二进制协议（ 与 JSON 相比，MessagePack 通常会创建更小的消息。 旧版浏览器必须支持 XHR 级别 2 才能提供 MessagePack 协议支持）
+
+## 3 demo
+### 3.1 创建Hub
+
+```cs
+public class RealMessageHub : Hub
+{
+    // 将 public 方法添加到类，这个方法就能够被客户端调用
+    // 可以通过客户端1发送消息给客户端2，然后这个过程是借助服务端定义的方法
+    public async Task SendMessage(string user, string message)
+        => await Clients.All.SendAsync("ReceiveMessage", user, message, "--auto--",cancellationToken:default); // 将消息发送到所有连接的客户端
+    
+    // 从客户端请求结果
+    public async Task<string> WaitForMessage(string connectionId)
+    {
+        var message = await Clients.Client(connectionId).InvokeAsync<string>("GetMessage", default);
+        return message;
+    }
+    
+}
+```
+Hub 类管理连接、组和消息。可通过已连接客户端调用 SendMessage，以向所有客户端发送消息。
+
+### 3.2 配置SignalR
+```cs
+services.AddSignalR(); 
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapHub<RealMessageHub>("/RealMessageHub"); 
+});
+```
+
+
