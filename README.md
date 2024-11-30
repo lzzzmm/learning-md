@@ -3,7 +3,7 @@
 
 ## 1. 目录
 - ASP\.NET CORE
-    - CLR Via C#
+    - CLR
     - Attributes
     - Authentication
     - Authorization

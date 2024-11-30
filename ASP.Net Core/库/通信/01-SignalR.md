@@ -48,7 +48,7 @@ Hub是SignalR的一个组件, 它运行在ASP\.NET Core应用里，是服务器�
 - 基于JSON的文本协议
 - 基于MessagePack的二进制协议（ 与 JSON 相比，MessagePack 通常会创建更小的消息。 旧版浏览器必须支持 XHR 级别 2 才能提供 MessagePack 协议支持）
 
-## 3 demo
+## 3 demo-客户端通过Hub获取消息
 ### 3.1 创建Hub
 
 ```cs
@@ -79,4 +79,145 @@ app.UseEndpoints(endpoints =>
 });
 ```
 
+![2024-11-29-03-15-17.png](./images/2024-11-29-03-15-17.png)
 
+记得配置cors让react可以连接到dotnet项目。
+
+### 3.3 react客户端
+从Hub获取消息，走SendMessage方法
+
+```js
+import React, { useEffect, useState } from 'react';
+import * as signalR from "@microsoft/signalr";
+
+function App() {
+    const [connection, setConnection] = useState(null);
+    const [messages, setMessages] = useState([]);
+
+    useEffect(() => {
+        const newConnection = new signalR.HubConnectionBuilder()
+            .withUrl("https://localhost:7273/RealMessageHub")
+            .build();
+
+        setConnection(newConnection);
+    }, []);
+
+    useEffect(() => {
+        if (connection) {
+            connection.start()
+                .then(() => {
+                    console.log("Connection established.");
+                })
+                .catch(err => console.error(err));
+
+            connection.on("ReceiveMessage", (user, message, data) => {
+                setMessages([...messages, { user, message, data }]);
+            });
+        }
+    }, [connection]);
+
+    const sendMessage = async () => {
+        if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
+            console.log(connection);
+            console.log("Connection is not in the 'Connected' state.");
+            return;
+        }
+        try {
+            await connection.invoke("SendMessage", "User1", "Hello from client!");
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    return (
+        <div>
+            <button onClick={sendMessage}>Send Message</button>
+            <div>
+                {messages.map((msg, index) => (
+                    <div key={index}>
+                        <strong>{msg.user}</strong>: {msg.message}\{msg.data}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+export default App;
+```
+
+## 4 dotnet项目推送消息给react客户端
+### 4.1 dotnet创建Handler
+使用 IHubContext 直接向客户端发送消息时，不会经过 Hub 类中的方法逻辑。
+
+```cs
+public class TestSignalCommand : ICommand
+{
+    
+}
+
+public class TestSignalCommandHandler : ICommandHandler<TestSignalCommand>
+{
+    private readonly IHubContext<RealMessageHub> _hubContext; // builder.Services.AddSignalR(); 已经注册了
+    public TestSignalCommandHandler(IHubContext<RealMessageHub> hubContext)
+    {
+        _hubContext = hubContext;
+    }
+    
+    public async Task Handle(IReceiveContext<TestSignalCommand> context, CancellationToken cancellationToken)
+    {
+        await _hubContext.Clients.All.SendAsync("ReceiveMessageAuto", "user2", "service auto send message", 
+            "这个跟hub里面的ReceiveMessage没有关系", "出现", cancellationToken:cancellationToken);
+    }
+}
+```
+
+### 4.2 react接收消息
+```js
+import React, { useEffect, useState } from 'react';
+import * as signalR from "@microsoft/signalr";
+
+function App() {
+    const [connection, setConnection] = useState(null);
+    const [messages, setMessages] = useState([]);
+
+    useEffect(() => {
+        const newConnection = new signalR.HubConnectionBuilder()
+            .withUrl("https://localhost:7273/RealMessageHub")
+            .build();
+
+        setConnection(newConnection);
+    }, []);
+
+    useEffect(() => {
+        if (connection) {
+            connection.start()
+                .then(() => {
+                    console.log("Connection established.");
+                })
+                .catch(err => console.error(err));
+
+            connection.on("ReceiveMessageAuto", (user, message, data, data2) => {
+                setMessages([...messages, { user, message, data, data2 }]);
+            });
+        }
+    }, [connection]);
+    
+
+    return (
+        <div>
+            <div>
+                {messages.map((msg, index) => (
+                    <div key={index}>
+                        <strong>{msg.user}</strong>: {msg.message}:{msg.data}:{msg.data2}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+export default App;
+
+```
+![2024-11-29-03-23-46.png](./images/2024-11-29-03-23-46.png)
