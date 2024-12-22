@@ -204,4 +204,93 @@ CLR支持三种互操作情形：
 
 ## 2 生成、打包、部署和管理应用类型及程序
 
+### 2.1 将类型生成到模块中
+
+一个将源代码文件转变味可以部署文件的例子：
+
+如果找不到csc.exe，可以在C:\Windows\Microsoft.NET\Framework64\v4.0.30319 查看有没有，如果有的话，把路径添加到系统环境变量里。
+
+![2024-12-21-22-53-51.png](./images/2024-12-21-22-53-51.png)
+
+![2024-12-21-22-56-06.png](./images/2024-12-21-22-56-06.png)
+
+这个命令行指示C#编译器生成，名为Program.exe的可执行文件（/out:Program.exe）生成的文件是Win32控制台应用程序类型（/t[arget]:exe）
+
+C#编译器处理源文件，发现引用了System.Console类型的WriteLine，需要做的是核实该类型存在并有WriteLine方法并且传递实参与方法形参是匹配的。因为源代码没有定义，要通过编译，需要先C#编译器提供一组程序集，使他能够解析对外部的引用。这也是为什么添加了/r[eference]:MSCorLib.dll开关，能够告诉编译器在MSCorLib.dll程序集中查找外部类型。
+
+MSCorLib.dll是特殊文件，包含所有核心类型，包括Byte、Char、String等。用的频繁，所以C#编译器会自动引用MSCorLib.dll程序集，所以上面的命令行也可以去掉/r[eference]:MSCorLib.dll。
+
+由于/out:Program.exe和/t:exe是C#编译器默认设定，所以可以简化成`csc.exe Program.cs`。
+
+Windows支持三种应用程序：
+- /t:exe : 控制台用户界面（CUI）应用程序
+- /t:winexe : 图形用户界面（GUI）应用程序
+- /t:appcontainerexe : Windows Store应用
+
+先了解一下 *相应文件* 的概念：
+相应文件是包含一组编译器命令行开关的文本文件。就是一个命令行参数文本，加上这个文本就不用重复在命令行指定了。
+
+比如现在有一个MyProject.rsp文件有以下文本
+```
+/out:MyProject.exe
+/target:winexe
+```
+
+那么上面的例子可以这样写：
+```
+csc.exe @MyProject.rsp Program.cs
+```
+
+这样Program.cs就删除了GUI应用程序。
+
+C#编译器支持多个响应文件，除了命令行显示指定，编译器会自动查找名为CSC.rsp文件。\.NET Framework 安装时会在%SystemRoot%\Microsoft.NET\Framework\vxxx里安装默认全局CSC.rsp。
+
+![2024-12-22-13-00-31.png](./images/2024-12-22-13-00-31.png)
+
+因为使用全局csc.rps所以在编写代码时不用using System也不会报错。
+
+指定/noconfig命令行开关，编译器会忽略本地和全局CSC.rsp文件。
+
+### 2.2 元数据概述
+托管PE文件由4部分构成：
+- PE32（+）头
+    - Windows要求的标准信息
+- CLR头
+    - 需要CLR模块特有的，包含模块生成时所面向的CLR的major（主）和minor（次）版本号、一些标志（flag），一个MethodDef token、一个可选的强类型名称数字签名、模块内部一些元数据表的大小和偏移量
+    - 可以查看CorHdr.h头文件定义的`IMAGE_COR20_HEADER`了解CLR头具体格式
+- 元数据
+    - 由几个表构成二进制数据块
+        - 定义表
+        - 引用表
+        - 清单表
+            - 主要包含作为程序集组成部分的哪些文件名称，描述了程序集的版本、语言文化、发布者、公开导出的类型以及构成程序集的所有文件
+- IL
+
+
+常用定义表：
+- ModuleDef：对模块进行标识的一个记录项
+- TypeDef：模块定义的每个类型在这个表中都有一个记录项，每个记录项有一些索引，指向MethodDef表中该类型的方法，FieldDef表中该类型的字段、PropertyDef表中该类型的属性以及EventDef表中该类型的事件
+- MethodDef：模块定义的每个方法在这个表中都有一个记录项
+- FieldDef：模块定义的每个字段在这个表中都有一个记录项
+- ParamDef：模块定义的每个参数在这个表中都有一个记录项，每个记录项都包含标志（in，out，retval等）、类型和名称
+- PropertyDef：命令定义的每个属性在这个表中都有一个记录项
+- EventDef：模块定义的每个事件在这个表中都有一个记录项
+
+
+常用引用元数据表：
+- AssemblyRef：模块引用的每个程序集在这个表中都有一个记录项（一组dll）
+- ModuleRef：实现该模块所引用的类型的每个PE模块在这个表中都有一个记录项（一个dll或exe就是一个模块）
+- TypeRef：模块引用的每个类型在这个表中都有一个记录项
+- memberRef：模块引用的每个成员（字段和方法，以及属性方法和事件方法）在这个表中都有一个记录项
+
+
+清单元数据表：
+- AssemblyDef：如果模块标识的是程序集，这个元数据表就包含单一记录项列出程序集名称、版本、语言文化、标志、哈希算法以及发布者公钥（可为null）
+- FileDef：作为程序集一部分的每个PE文件和资源文件在这个表中都有一个记录项（清单本省所在文件除外，该文件在AssemblyDef表的单一记录项中列出）
+- ManifestResourceDef：作为程序集一部分的每个资源在这个表中都有一个记录项
+- ExportedTypesDef：从程序集的所有PE模块中导出的每个public类型在这个表中都有一个记录项
+
+### 2.3 将模块合并成程序集
+
+
 ## 3 共享程序集合强命名程序
