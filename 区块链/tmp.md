@@ -6,6 +6,16 @@
  mkdir cardano-env-config db nodeConfig
 cd cardano-env-config/
 ```
+
+```
+wget -P template/ https://raw.githubusercontent.com/input-output-hk/iohk-nix/master/cardano-lib/testnet-template/alonzo.json
+wget -P template/ https://raw.githubusercontent.com/input-output-hk/iohk-nix/master/cardano-lib/testnet-template/byron.json
+wget -P template/ https://raw.githubusercontent.com/input-output-hk/iohk-nix/master/cardano-lib/testnet-template/config.json
+wget -P template/ https://raw.githubusercontent.com/input-output-hk/iohk-nix/master/cardano-lib/testnet-template/shelley.json
+wget -P template/ https://raw.githubusercontent.com/input-output-hk/iohk-nix/master/cardano-lib/testnet-template/conway.json
+```
+
+
 config.json:
 ```
   "EnableP2P": false,
@@ -54,11 +64,16 @@ cardano-cli conway genesis create-cardano \
 ```
 
 ```
+mv node-config.json config.json
+mv delegate-keys/byron.000* delegate-keys/shelley.000* ../nodeConfig/
+```
+
+```
 cardano-node run \
 --config $HOME/src/privatenet/cardano-env-config/config.json \
 --database-path $HOME/src/privatenet/db/ \
 --socket-path $HOME/src/privatenet/db/node.socket \
---host-addr 172.23.15.16 \
+--host-addr 127.0.0.1 \
 --port 3001 \
 --topology $HOME/src/privatenet/nodeConfig/topology.json \
 --shelley-kes-key $HOME/src/privatenet/cardano-env-config/delegate-keys/shelley.000.kes.skey \
@@ -68,3 +83,20 @@ cardano-node run \
 --byron-signing-key   $HOME/src/privatenet/cardano-env-config/delegate-keys/byron.000.key
 ```
 
+目前链上是alonzo，需要升级的话是提交硬分叉的提案：
+```
+cardano-cli conway governance action create-hardfork \
+--mainnet \
+--governance-action-deposit 0 \
+--deposit-return-stake-verification-key-file  ~/src/privatenet/cardano-node-con/stake-keys/stake.vkey \
+--anchor-url "
+https://github.com/cardano-foundation/CIPs/raw/refs/heads/master/CIP-0119/examples/drep.jsonld" \
+--anchor-data-hash "fecc1773db89b45557d82e07719c275f6877a6cadfd2469f4dc5a7df5b38b4a4" \
+--protocol-major-version 7 \
+--protocol-minor-version 0 \
+--out-file ~/src/privatenet/cardano-node-con/governance-action.json
+```
+
+```
+cardano-cli conway stake-address key-gen --signing-key-file stake.skey --verification-key-file stake.vkey
+```
