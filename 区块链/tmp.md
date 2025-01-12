@@ -1,5 +1,5 @@
  ```
- export CARDANO_NODE_SOCKET_PATH="$HOME/src/cardano-config/db/node.socket"
+export CARDANO_NODE_SOCKET_PATH="$HOME/src/privatenet/db/node.socket"
  export PATH=$PATH:/$HOME/src/cardano-node/bin
  mkdir privatenet
  cd privatenet
@@ -55,7 +55,7 @@ cardano-cli conway genesis create-cardano \
 --security-param 45 \
 --slot-length 100 \
 --slot-coefficient 5/100 \
---mainnet \
+--testnet-magic  42 \
 --byron-template template/byron.json \
 --shelley-template template/shelley.json \
 --alonzo-template template/alonzo.json \
@@ -83,20 +83,131 @@ cardano-node run \
 --byron-signing-key   $HOME/src/privatenet/cardano-env-config/delegate-keys/byron.000.key
 ```
 
-目前链上是alonzo，需要升级的话是提交硬分叉的提案：
+
+![2025-01-12-18-54-18.png](./images/2025-01-12-18-54-18.png)
+
+alonzo能够生产区块，但是到了硬分叉升级为Babbage的时候就出现报错了。
+巴贝奇时代（Vasil 硬分叉）取消了去中心化参数。这意味着当前的 BFT 节点将无法继续在 Babbage 中生成区块。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```
-cardano-cli conway governance action create-hardfork \
---mainnet \
---governance-action-deposit 0 \
---deposit-return-stake-verification-key-file  ~/src/privatenet/cardano-node-con/stake-keys/stake.vkey \
---anchor-url "
-https://github.com/cardano-foundation/CIPs/raw/refs/heads/master/CIP-0119/examples/drep.jsonld" \
---anchor-data-hash "fecc1773db89b45557d82e07719c275f6877a6cadfd2469f4dc5a7df5b38b4a4" \
---protocol-major-version 7 \
---protocol-minor-version 0 \
---out-file ~/src/privatenet/cardano-node-con/governance-action.json
+cardano-cli conway transaction build \
+  --testnet-magic 42 \
+  --socket-path /var/lib/cardano-node/node.socket \
+  --invalid-hereafter $(expr $(cardano-cli query tip --testnet-magic 42 --socket-path $HOME/src/privatenet/db/node.socket | jq .slot) + 1000) \
+  --tx-in $(cardano-cli query utxo --address $(cat utxo-keys/shelley.000.addr) --testnet-magic 42 --socket-path $HOME/src/privatenet/db/node.socket --out-file ./out | jq -r 'keys[]') \
+  --tx-out $(cat pool1/payment.addr)+50000000000000 \
+  --change-address $(cat utxo-keys/shelley.000.addr) \
+  --out-file transactions/tx3.raw
 ```
 
 ```
-cardano-cli conway stake-address key-gen --signing-key-file stake.skey --verification-key-file stake.vkey
+cardano-cli signing-key-address \
+    --testnet-magic 42 \
+    --secret utxo-keys/byron.000.key > utxo-keys/byron.000.addr
+
+cardano-cli address build \
+--payment-verification-key-file utxo-keys/shelley.000.vkey \
+--mainnet \
+--out-file utxo-keys/shelley.000.addr
+```
+
+```
+mkdir pool1
+
+cardano-cli address key-gen \
+--verification-key-file pool1/payment.vkey \
+--signing-key-file pool1/payment.skey
+
+cardano-cli conway stake-address key-gen \
+--verification-key-file pool1/stake.vkey \
+--signing-key-file pool1/stake.skey
+
+
+cardano-cli address build \
+--payment-verification-key-file pool1/payment.vkey \
+--stake-verification-key-file pool1/stake.vkey \
+--out-file pool1/payment.addr \
+--testnet-magic 42
+
+
+cardano-cli conway transaction build \
+  --testnet-magic 42 \
+  --socket-path /var/lib/cardano-node/node.socket \
+  --invalid-hereafter $(expr $(cardano-cli query tip --testnet-magic 42 --socket-path $HOME/src/privatenet/db/node.socket | jq .slot) + 100000) \
+  --tx-in $(cardano-cli query utxo --address $(cat utxo-keys/shelley.000.addr) --testnet-magic 42 --socket-path $HOME/src/privatenet/db/node.socket --out-file  /dev/stdout | jq -r 'keys[]') \
+  --tx-out $(cat pool1/payment.addr)+50000000000000 \
+  --change-address $(cat utxo-keys/shelley.000.addr) \
+  --out-file transactions/tx3.raw
+```
+
+--socket-path  $HOME/src/privatenet/db/node.socket
+
+
+
+cardano-cli alonzo transaction build-raw \
+--invalid-hereafter $(expr $(cardano-cli query tip --socket-path  $HOME/src/privatenet/db/node.socket --testnet-magic 42 | jq .slot) + 1000) \
+--fee 1000000 \
+--tx-in $(cardano-cli byron transaction txid --tx transactions/tx0.tx)#0 \
+--tx-out $(cat utxo-keys/user1.payment.addr)+29999999998000000 \
+--out-file transactions/tx1.raw 
+
+
+cardano-cli alonzo transaction sign \
+--tx-body-file transactions/tx1.raw \
+--signing-key-file utxo-keys/payment.000.converted.key \
+--testnet-magic 42 \
+--out-file transactions/tx1.signed
+
+cardano-cli alonzo transaction submit \
+--tx-file transactions/tx1.signed --testnet-magic 42 \
+--socket-path  $HOME/src/privatenet/db/node.socket
+
+
+cardano-cli submit-tx \
+            --testnet-magic 42 \
+            --tx transactions/tx0.tx \
+            --socket-path  $HOME/src/privatenet/db/node.socket
+
+
+            
+byron钱转到shelley：
+```
+
+cardano-cli alonzo transaction build-raw \
+--invalid-hereafter $(expr $(cardano-cli query tip --socket-path  $HOME/src/privatenet/db/node.socket --testnet-magic 42 | jq .slot) + 1000) \
+--fee 1000000 \
+--tx-in 367cc4329aa8d87ad29b851bbdde6771eceee2d658bbebef7091922502a7145c#0 \
+--tx-out $(cat utxo-keys/user1.payment.addr)+29999999999000000 \
+--out-file transactions/tx1.raw 
+
+
+cardano-cli alonzo transaction sign \
+--tx-body-file transactions/tx1.raw \
+--signing-key-file utxo-keys/payment.000.converted.key \
+--testnet-magic 42 \
+--out-file transactions/tx1.signed
+
+cardano-cli alonzo transaction submit \
+--tx-file transactions/tx1.signed --testnet-magic 42 \
+--socket-path  $HOME/src/privatenet/db/node.socket
+
 ```
