@@ -311,7 +311,7 @@ cardano-cli alonzo transaction submit \
 --tx-file transactions/tx5.signed \
 --socket-path $HOME/src/privatenet/db/node.socket
 
-cardano-cli stake-pool id --cold-verification-key-file pool1/cold.vkey --output-format "hex"
+cardano-cli conway stake-pool id --cold-verification-key-file pool1/cold.vkey --output-format "hex"
 ```
 ![2025-01-13-02-47-45.png](./images/2025-01-13-02-47-45.png)
 
