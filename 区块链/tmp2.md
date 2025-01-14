@@ -192,17 +192,6 @@ cat > pool1/topology.json <<EOF
  }
 EOF
 
-cat > ../nodeConfig/topology.json <<EOF
-{
-   "Producers": [
-     {
-       "addr": "127.0.0.1",
-       "port": 3002,
-       "valency": 1
-     }
-   ]
- }
-EOF
 ```
 
 启动权益池节点:
@@ -345,12 +334,87 @@ cardano-cli alonzo transaction build-raw \
 cardano-cli alonzo transaction sign \
 --tx-body-file transactions/update.D0.proposal.txbody \
 --signing-key-file pool1/payment.skey \
---signing-key-file genesis-keys/shelley.000.skey \
+--signing-key-file delegate-keys/shelley.000.skey \
 --out-file transactions/update.D0.proposal.txsigned
 
 cardano-cli alonzo transaction submit --testnet-magic 42 --tx-file transactions/update.D0.proposal.txsigned --socket-path $HOME/src/privatenet/db/node.socket 
 ```
 
+程序委托创世密钥：
+```
+生成新的（雪莱时代）委托密钥对：
+cardano-cli alonzo genesis key-gen-delegate \
+--verification-key-file delegate-keys/new.shelley.delegate.000.vkey \
+--signing-key-file delegate-keys/new.shelley.delegate.000.skey \
+--operational-certificate-issue-counter-file delegate-keys/new.shelley.delegate.000.certificate.counter
+
+为创世密钥 000 颁发新的委托证书：
+cardano-cli alonzo  governance  create-genesis-key-delegation-certificate \
+  --genesis-verification-key-file genesis-keys/non.e.shelley.000.vkey \
+  --genesis-delegate-verification-key-file delegate-keys/new.shelley.delegate.000.vkey \
+  --vrf-verification-key-file delegate-keys/shelley.000.vrf.vkey \
+  --out-file genesis-keys/genesis.delegation.cert
+
+cardano-cli query utxo --address $(cat utxo-keys/convert_shelley.addr) --testnet-magic 42 --socket-path $HOME/src/privatenet/db/node.socket
+
+CHANGE=$((29949999999800000 - 1000000))
+
+cardano-cli alonzo transaction build-raw \
+--fee 1000000 \
+--tx-in $(cardano-cli query utxo --address $(cat utxo-keys/convert_shelley.addr) --socket-path $HOME/src/privatenet/db/node.socket  --testnet-magic 42 --out-file  /dev/stdout | jq -r 'keys[]') \
+--tx-out $(cat utxo-keys/convert_shelley.addr)+$CHANGE \
+--certificate-file genesis-keys/genesis.delegation.cert \
+--out-file transactions/tx9.raw
+
+cardano-cli alonzo transaction sign \
+--tx-body-file transactions/tx9.raw \
+--signing-key-file utxo-keys/convert_shelley.skey \
+--signing-key-file genesis-keys/shelley.000.skey \
+--out-file transactions/tx9.signed \
+--testnet-magic 42
+
+cardano-cli alonzo transaction submit \
+--testnet-magic 42 \
+--tx-file transactions/tx9.signed \
+--socket-path $HOME/src/privatenet/db/node.socket
+```
+
+Vasil hard fork
+```
+// 调整config.json文件
+ sed -i template/config.json \
+ -e 's/"LastKnownBlockVersion-Major": 3/"LastKnownBlockVersion-Major": 7/' \
+ -e 's/"LastKnownBlockVersion-Minor": 1/"LastKnownBlockVersion-Minor": 0/' 
+
+// 创建更新提案以迁移到协议版本 7.0
+cardano-cli alonzo governance action  create-protocol-parameters-update \
+--genesis-verification-key-file genesis-keys/non.e.shelley.000.vkey \
+--out-file transactions/update.v7.proposal \
+--epoch $(cardano-cli query tip --socket-path $HOME/src/privatenet/db/node.socket --testnet-magic 42 | jq .epoch) \
+--protocol-major-version "7" \
+--protocol-minor-version "0" 
+
+CHANGE=$(($(cardano-cli query utxo --address $(cat pool1/payment.addr) --socket-path $HOME/src/privatenet/db/node.socket --testnet-magic 42 --out-file  /dev/stdout | jq -cs '.[0] | to_entries | .[] | .value.value.lovelace') - 1000000))
+
+cardano-cli alonzo transaction build-raw \
+--fee 1000000 \
+--invalid-hereafter $(expr $(cardano-cli query tip --socket-path $HOME/src/privatenet/db/node.socket --testnet-magic 42 | jq .slot) + 1000) \
+--tx-in $(cardano-cli query utxo --address $(cat pool1/payment.addr) --socket-path $HOME/src/privatenet/db/node.socket --testnet-magic 42 --out-file  /dev/stdout | jq -r 'keys[]') \
+--tx-out $(cat pool1/payment.addr)+$CHANGE \
+--update-proposal-file transactions/update.v7.proposal \
+--out-file transactions/update.v7.proposal.txbody
+
+cardano-cli alonzo transaction sign \
+--tx-body-file transactions/update.v7.proposal.txbody \
+--signing-key-file pool1/payment.skey \
+--signing-key-file delegate-keys/new.shelley.delegate.000.skey \
+--signing-key-file delegate-keys/shelley.000.skey \
+--out-file transactions/update.v7.proposal.txsigned
+
+cardano-cli alonzo transaction submit --testnet-magic 42 --tx-file transactions/update.v7.proposal.txsigned --socket-path $HOME/src/privatenet/db/node.socket
+
+cardano-cli query tip --testnet-magic 42 --socket-path $HOME/src/privatenet/db/node.socket
+```
 
 
 
