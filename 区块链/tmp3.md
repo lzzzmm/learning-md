@@ -70,3 +70,6 @@ cardano-cli alonzo transaction sign \
 
 cardano-cli alonzo transaction submit --testnet-magic 42 --tx-file transactions/update.v7.proposal.txsigned --socket-path $HOME/src/privatenet/db/node.socket
 ```
+
+
+
