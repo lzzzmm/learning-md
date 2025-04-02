@@ -112,3 +112,74 @@ static void Main(string[] args)
     Console.WriteLine(lambdaExpression.Compile()(new MyClass()));
 }
 ```
+
+## E.G.
+常量表达式：
+```cs
+// ()=>5
+
+// 一个常量表达式
+var constant = Expression.Constant(5);
+
+// 将常量包装为一个lambda表达式
+var lambda = Expression.Lambda<Func<int>>(constant);
+
+// 只有完整表达式LambdaExpression才能编译成委托
+var func = lambda.Compile();
+```
+
+结合linq：
+```cs
+class User
+{
+	public string name{get;set;}
+	public int age{get;set;}
+	public bool isDelete{get;set;}
+}
+
+void Main()
+{
+	// users.Where(u=>u.age < 20 || u.isDelete = true)
+	
+	var users = new List<User>(){
+		new User(){name = "a", age = 12, isDelete = false},
+		new User(){name = "b", age = 18, isDelete = false},
+		new User(){name = "c", age = 33, isDelete = false},
+		new User(){name = "d", age = 40, isDelete = true}
+	}.AsQueryable();
+	
+	// 定义形参
+	var parameter = Expression.Parameter(typeof(User), "u");
+	
+	// 定义常量
+	var ageConstant = Expression.Constant(20);
+	var delConstant = Expression.Constant(true);
+	
+	// 定义属性
+	var ageProperty = Expression.Property(parameter, nameof(User.age));
+	var isDeleteProperty = Expression.Property(parameter, nameof(User.isDelete));
+
+        // u.age < 20> 
+	var ageBinary = Expression.LessThan(ageProperty, ageConstant);
+        // u.isDelete = true
+	var delBinary = Expression.Equal(isDeleteProperty, delConstant);
+	// u.age < 20 || u.isDelete = true
+	var contactBinary = Expression.OrElse(ageBinary, delBinary);
+	// 结合为 u=> u.age < 20 || u.isDelete = true的lambda表达式
+	var whereLambda = Expression.Lambda<Func<User, bool>>(contactBinary, parameter);
+	
+	// 方法表达式
+	var whereCallExpr = Expression.Call(
+	typeof(Queryable), //调用的对象类型
+	"Where", // 指定用Where方法
+	new[] { typeof(User) }, //  Queryable.Where<T>只需要一个泛型参数T
+	users.Expression, // 调用方的expression
+	whereLambda); // where里的表达式
+	
+	// 将构建好的表达式树转换为可执行的查询
+	var resultQuery = users.Provider.CreateQuery<User>(whereCallExpr);
+	
+	var list = resultQuery.ToList();
+	Console.WriteLine(list);
+}
+```
