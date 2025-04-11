@@ -168,7 +168,7 @@ void Main()
 	// 结合为 u=> u.age < 20 || u.isDelete = true的lambda表达式
 	var whereLambda = Expression.Lambda<Func<User, bool>>(contactBinary, parameter);
 	
-	// 方法表达式
+	// 方法表达式  .Where(xxx).Where(u=>u.age < 20 || u.isDelete = true)
 	var whereCallExpr = Expression.Call(
 	typeof(Queryable), //调用的对象类型
 	"Where", // 指定用Where方法
