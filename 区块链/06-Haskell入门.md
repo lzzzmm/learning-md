@@ -128,6 +128,143 @@ data BillingInfo = CreditCard CardNumber CardHolder
 let card = CreditCard "2901650221064486" "Thomas Gradgrind" ["Dickens", "England"]
 ```
 
+
+#### 模式匹配
+其实就是函数名一样，参数不一样而已（重载）
+
+![2025-04-11-22-54-11.png](./images/2025-04-11-22-54-11.png)
+
+（在源码才能有这个效果，ghci不行，会变成覆盖）
+
+![2025-04-11-23-08-01.png](./images/2025-04-11-23-08-01.png)
+
+组成和解构：
+```hs
+complicated (True, a, x:xs, 5) = (a, xs)
+complicated (True, 1, [1, 2, 3], 5) -- (1,[2,3])
+-- (x:xs) 或是 (d:ds) 这种类型的名字，是一个流行的命名规则
+--  s 表示元素的复数，用 x 来表示列表的第一个元素，剩余的列表元素则用 xs 表示
+```
+
+```hs
+bookID      (Book id title authors) = id
+let book = (Book 3 "Probability Theory" ["E.T.H. Jaynes"])
+bookID book -- 3
+```
+
+如果在匹配模式中我们不在乎某个值的类型，那么可以用下划线字符 “_” 作为符号来进行标识，它也叫做*通配符*
+```hs
+nicerID      (Book id _     _      ) = id
+```
+
+可以用通配符定义一个默认行为
+```hs
+sumList (x:xs) = x + sumList xs
+sumList _  = 0
+```
+
+给每一个数据类型写访问器函数很枯燥，重复又是必须的，这个叫做样板代码
+```hs
+nicerID      (Book id _     _      ) = id
+nicerTitle   (Book _  title _      ) = title
+nicerAuthors (Book _  _     authors) = authors
+```
+
+#### 记录语法 *
+haskell提供更加便捷的写法（记录语法）：
+```hs
+type BookId = Int
+
+-- type BookName = String
+-- type Author = [String]
+-- data BookInfo = Book BookId BookName Author deriving (Show)
+
+data Book = Book{
+  bookId :: BookId,
+  bookName :: String,
+  author :: [String]
+}deriving (Show)
+
+-- 可以类比C#的{get;set;}了
+
+-- myInfo = Book 9780135072455 "Algebra of Programming"["Richard Bird", "Oege de Moor"]
+
+-- 可以这样赋值
+myInfo = Book{
+  bookName = "Algebra of Programming",
+  bookId = 9780135072455,
+  author = ["Richard Bird", "Oege de Moor"]
+}
+```
+
+#### 参数化类型
+![2025-04-12-02-16-48.png](./images/2025-04-12-02-16-48.png)
+
+#### 递归类型
+```hs
+-- 定义类型
+data List a = Cons a (List a)
+            | Nil
+              deriving (Show)
+
+-- 定义方法
+fromList (x:xs) = Cons x (fromList xs)
+```
+
+![2025-04-12-03-17-08.png](./images/2025-04-12-03-17-08.png)
+
+### 变量
+#### 局部变量
+let...in...：
+```hs
+-- let 关键字标识一个变量声明区块的开始，用 in 关键字标识这个区块的结束
+-- 在 let 区块内定义的变量，既可以在定义区内使用，也可以在紧跟着 in 关键字的表达式中使用
+
+lend amount balance = let reserve = 100
+                          newBalance = balance - amount
+                      in if balance < reserve
+                         then Nothing
+                         else Just newBalance
+
+
+{-lend amount balance = let reserve = 100 ;newBalance = balance - amount
+                      in if balance < reserve
+                         then Nothing
+                         else Just newBalance -}
+```
+
+屏蔽：
+```hs
+-- 内部的 x 隐藏了，或称作屏蔽（shadowing）
+foo = let x = 1
+      in ((let x = "foo" in x), x)
+```
+
+where：
+```hs
+lend2 amount balance = if balance < reserve
+                       then Nothing 
+                       else Just newBalance
+                  where reserve = 100
+                        newBalance = balance - amount
+```
+
+![2025-04-12-05-20-56.png](./images/2025-04-12-05-20-56.png)
+
+#### 全局变量
+```hs
+-- globalVar :: Int
+globalVar = 42 
+```
+
+#### 闭包变量
+
+#### 参数变量
+```hs
+foo x = x + 1  -- x是参数变量，作用域限于foo函数内部
+```
+
+
 ### 函数
 
 - 函数参数不需要括号包围，参数与参数之间不需要逗号
@@ -178,14 +315,68 @@ myDrop n xs = if n <= 0 || null xs
 
 ![2025-04-09-23-16-23.png](./images/2025-04-09-23-16-23.png)
 
+## 函数式编程
+### 循环
+Haskell 既没有 for 循环，也没有 while 循环
+#### 显示递归
+```hs
+-- 只载入 Data.Char 中的 digitToInt 函数
+-- 用于将单个数字字符（0-9、A-F、a-f）转换成对应的整数值（0-15）
+import Data.Char (digitToInt)
 
-#### 模式匹配
-其实就是函数名一样，参数不一样而已（重载）
+loop :: Int -> String -> Int -- 函数签名
+-- 定义函数
+loop acc [] = acc
+loop acc (x:xs) = let acc' = acc * 10 + digitToInt x
+                  in loop acc' xs
 
-![2025-04-11-22-54-11.png](./images/2025-04-11-22-54-11.png)
+-- 定义函数
+asInt xs = loop 0 xs
 
-（在源码才能有这个效果，ghci不行，会变成覆盖）
+-- asInt "12" => loop 0 "12" => loop (0*10 + 1) "2" => loop 1 "2" => loop (1*10+2) [] => 12
 
-![2025-04-11-23-08-01.png](./images/2025-04-11-23-08-01.png)
+```
+
+#### 对列表元素进行转换
+```hs
+square :: [Double] -> [Double]
+
+square (x:xs) = x * x : square xs
+square [] = []
+
+-- square [1,2,3,4]
+-- [1.0,4.0,9.0,16.0]
+```
+
+#### 列表映射 map
+```hs
+square2 :: [Double] -> [Double]
+
+square2 xs = map squareOne xs
+             where squareOne x = x * x
+```
+![2025-04-12-06-58-22.png](./images/2025-04-12-06-58-22.png)
+
+#### 筛选列表元素
+```hs
+-- 筛选出奇数 if-then-else版
+oddList :: [Int] -> [Int]
+
+oddList (x:xs) = 
+  if odd x then x : oddList xs
+  else oddList xs
+
+oddList [] = []
+
+-- 更简便写法  Guard版
+oddList2 :: [Int] -> [Int]
+oddList2 (x:xs) 
+  | odd x = x : oddList2 xs
+  | otherwise = oddList2 xs
+
+oddList2 [] = []
 
 
+-- oddList [1, 2, 3, 4,5]
+-- [1,3,5]
+```
