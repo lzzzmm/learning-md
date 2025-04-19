@@ -130,7 +130,7 @@ let card = CreditCard "2901650221064486" "Thomas Gradgrind" ["Dickens", "England
 
 
 #### 模式匹配
-其实就是函数名一样，参数不一样而已（重载）
+其实就是函数名一样，参数不一样而已（重载）,有一点不同，就是第一个函数没有匹配到（执行后没有返回），就会继续匹配第二个函数。
 
 ![2025-04-11-22-54-11.png](./images/2025-04-11-22-54-11.png)
 
@@ -169,6 +169,34 @@ nicerID      (Book id _     _      ) = id
 nicerTitle   (Book _  title _      ) = title
 nicerAuthors (Book _  _     authors) = authors
 ```
+
+函数定义并不是唯一能使用模式匹配的地方。case 结构使得还能在一个表达式内部使用模式匹配。
+```hs
+fromMaybe defval wrapped =
+    case wrapped of
+      Nothing     -> defval
+      Just value  -> value
+      -- _ -> Nothing
+```
+case 关键字后面可以跟任意表达式，这个表达式的结果即是模式匹配的目标。of 关键字标识着表达式到此结束，以及匹配区块的开始，这个区块将用来定义每种模式及其对应的表达式。
+
+#### 守卫
+我们常常需要在对函数体求值之前进行各种各样的检查。Haskell 也为此提供了守卫这个特性。
+
+
+```hs
+myGuard n 
+  | n < 0 = "zero or negative"
+  | n == 0 = "zero"
+  | n == 1 = "one"
+  | n == 2 = "two"
+
+myGuard n = "No";
+```
+也可以用otherwise，这是一个被绑定为值 True 的普通变量。
+
+![2025-04-14-03-50-51.png](./images/2025-04-14-03-50-51.png)
+
 
 #### 记录语法 *
 haskell提供更加便捷的写法（记录语法）：
@@ -316,6 +344,45 @@ myDrop n xs = if n <= 0 || null xs
 ![2025-04-09-23-16-23.png](./images/2025-04-09-23-16-23.png)
 
 ## 函数式编程
+### 中缀函数
+纯粹是为了语法上的便利，因此它不会改变函数的行为
+```hs
+plus 1 2
+-- 相当于使用中缀函数
+1 `plus` 2
+```
+
+### 列表相关
+Data.List模块包含所有的列表函数  `:module +Data.List`
+
+基本操作：
+![2025-04-17-09-25-28.png](./images/2025-04-17-09-25-28.png)
+
+产生子列表：
+![2025-04-19-03-26-43.png](./images/2025-04-19-03-26-43.png)
+
+搜索列表：
+![2025-04-19-03-30-58.png](./images/2025-04-19-03-30-58.png)
+
+一次性处理多个列表：
+![2025-04-19-03-33-47.png](./images/2025-04-19-03-33-47.png)
+
+
+
+
+
+### 全函数 & 部分函数
+- 全函数
+  - 对于其声明的输入类型（定义域）中的 所有可能值，全函数都能返回一个有效的输出。即，函数不会在任何合法输入上崩溃或陷入无限循环
+  - 推荐，比较可靠
+- 部分函数
+  - 函数对某些合法输入没有定义输出（即会抛出异常、崩溃或无法终止）
+  - 比如`head []` 会抛出异常
+  - 有些使用Haskell的程序员会为部分函数加上unsafe的前缀
+
+
+
+
 ### 循环
 Haskell 既没有 for 循环，也没有 while 循环
 #### 显示递归
@@ -380,3 +447,40 @@ oddList2 [] = []
 -- oddList [1, 2, 3, 4,5]
 -- [1,3,5]
 ```
+
+
+
+
+## 编写JSON库（开发Haskell库示例）
+
+### 完整流程
+自定义数据类型：
+learning-code/Haskell/Json库/SimpleJSON.hs
+
+编译一个 Haskell 源码文件可以通过 ghc 命令来完成：
+```
+$ ghc -c SimpleJSON.hs
+
+$ ls
+SimpleJSON.hi  SimpleJSON.hs  SimpleJSON.o
+```
+- SimpleJSON.hi 是接口文件（interface file）， ghc 以机器可读的格式，将模块中导出名字的信息保存在这个文件
+- SimpleJSON.o 是目标文件（object file），它包含了已生成的机器码
+
+-c 表示让 ghc 只生成目标代码。如果省略 -c 选项，那么 ghc 就会试图生成一个完整的可执行文件，这需要有main函数
+
+成功编译了 SimpleJSON 库，可以写小程序去执行，创建Main.hs:
+learning-code/Haskell/Json库/Main.hs
+```
+ghc -o simple Main.hs
+```
+
+这次编译没有使用 -c 选项，因此 ghc 会尝试生成一个可执行程序，这个过程被称为链接（linking）。ghc 可以在一条命令中同时完成编译和链接的任务。
+
+-o 选项用于指定可执行程序的名字。在 Windows 平台下，它会生成一个 .exe 后缀的文件，而 UNIX 平台的文件则没有后缀。
+
+### 类型推导
+Haskell 编译器的类型推导能力非常强大也非常有价值。省略显式的类型信息时，编译器就必须猜测我们的意图：它会推导出合乎逻辑且相容的（consistent）类型，但是，这些类型可能并不是我们想要的。所以在刚开始的时候最好尽可能地为函数添加类型签名，然后随着对类型系统了解的加深，逐步放松要求。
+
+
+
