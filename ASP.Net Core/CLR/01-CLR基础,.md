@@ -135,6 +135,30 @@ Windows每个进程都有自己的虚拟空间，将每个Windows进程都放到
 
 CLR提供在一个操作系统进程中执行多个托管应用程序的能力。每个托管应用程序都在一个AppDomain中执行。
 
+<hr>
+
+AppDomain（应用程序域） 是 .NET Framework 中的一个核心概念，用于在一个独立的进程中创建逻辑隔离的单元，实现代码和数据的隔离。
+```cs
+class Program
+{
+    static void Main()
+    {
+        // 创建新的 AppDomain
+        AppDomain newDomain = AppDomain.CreateDomain("NewDomain");
+
+        // 在新建的 AppDomain 中执行程序集
+        newDomain.ExecuteAssembly("Plugin.dll");
+
+        // 卸载 AppDomain（释放资源）
+        AppDomain.Unload(newDomain);
+    }
+}
+```
+.NET Core 及后续版本（如 .NET 5/6/7）移除了 AppDomain，改为通过 AssemblyLoadContext 实现程序集隔离（如插件加载）。
+
+AppDomain 之间的通信需通过代理（Remoting），可能带来性能损耗。
+
+<hr>
 
 #### 1.4.2 不安全代码
 Microsoft C#编译器允许开发人员写不安全代码。不安全代码允许直接操作内存地址。C#编译器要求包含不安全代码的所有方法都用`unsafe`关键字标记。并且C#编译器要求使用/unsafe编译器开关编译源代码。
