@@ -2,6 +2,14 @@
 docker与虚拟机类似，但是比虚拟机更轻便，多个容器共享同一个操作系统内核，但在用户空间中相互隔离。容器更轻量，仅包含应用及其依赖项。
 
 ![2024-10-27-09-45-50.png](./images/2024-10-27-09-45-50.png)
+
+docker组成部分：
+- Docker Client 客户端
+- Docker Daemon守护进程
+- Docker Image 镜像
+- Docker Container 容器
+
+
 ## 1、docker三要素
 docker帮助命令：
 - 查看版本信息 docker version
@@ -110,6 +118,12 @@ network：
 
 #### 1.2.12 进入容器执行shell命令
 `docker exec -it [容器id Shell命令]`
+
+
+docker run -it --name=mycentos centos /bin/bash 这是交互式容器
+
+另外那种长期运行的是守护式容器（在容器内部exit退出时，容器也不会停止）
+
 
 
 #### 1.2.13 拷贝容器内文件
