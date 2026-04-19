@@ -463,7 +463,7 @@ Agent Harness = 管理 Agent Loop + 记忆 + 执行流程的“系统级控制�
 ## 认识LangChain
 LangChain的产品：
 - Deep Agents:最高层应用封装（Agent 产品级）
-- LangChain:自定义代理的构建模块，有基础组件，搭积木一样
+- LangChain:自定义代理的构建模块，有基础组件，搭积木一样，底层依赖于LangGraph
 - LangGraph：更底层，自定义agent开发每一个环节
 
 LangChain核心组件：
@@ -481,8 +481,95 @@ LangChain核心组件：
 
 ## demo
 
+![2026-04-13-22-20-49.png](./images/2026-04-13-22-20-49.png)
+
+
+BaseMessage：
+- SystemMessage  system 设定模型角色和交互背景
+- HumanMessage  user  用户输入消息
+- AIMessage  assist  LLM生成的响应包含文本、工具调用、元数据
+- ToolMessage  tool 工具调用时产生的结果
+
+![2026-04-13-22-34-41.png](./images/2026-04-13-22-34-41.png)
+
+## 工具
+### 自定义工具
+![2026-04-19-10-25-45.png](./images/2026-04-19-10-25-45.png)
+
+一个完整Agent至少包含两个关键部分：
+- 模型：Agent大脑，推理、分析、规划任务步骤
+- 工具：agent手脚，执行任务、与外界交互
+
+定义带有工具的agent基本流程：
+- 定义工具
+- 初始化模型
+- 初始化agent，绑定模型和工具
+
+![2026-04-19-10-31-01.png](./images/2026-04-19-10-31-01.png)
+
+![2026-04-19-11-14-46.png](./images/2026-04-19-11-14-46.png)
+
+![2026-04-19-11-15-59.png](./images/2026-04-19-11-15-59.png)
+
+![2026-04-19-11-16-12.png](./images/2026-04-19-11-16-12.png)
+
+
+### 预定义工具
+https://docs.langchain.com/oss/python/integrations/tools
+
+
+## 记忆
+![2026-04-19-13-10-43.png](./images/2026-04-19-13-10-43.png)
+
+分类：
+- 短期记忆：当前任务或会话的上下文
+  - 对话历史
+  - 查询结果
+  - 任务状态
+- 长期记忆：跨任务或会话的检验与知识
+  - 知识库
+  - 用户偏好
+  - 失败经验
+
+### 短期记忆
+LangChain中短期记忆通过AgentState实现，会话历史（消息列表）是AgentState的一部分
+
+LangChain提供Checkpointer对象保存AgentState, 每一次用户与AI的交互都会生成一个快照记录为一个checkpoint。同一会话的多个checkpoint形成一个组，用同一个thread_id标记
+
+![2026-04-19-13-16-06.png](./images/2026-04-19-13-16-06.png)
+
+实现记忆功能依赖于LangGraph
+
+![2026-04-19-13-25-25.png](./images/2026-04-19-13-25-25.png)
+
+
+持久化存储：
+
+![2026-04-19-13-45-56.png](./images/2026-04-19-13-45-56.png)
+
+![2026-04-19-13-45-39.png](./images/2026-04-19-13-45-39.png)
+
+
+### 记忆管理策略
+多轮对话导致历史消息越来越多，最终超出模型上下文限制（Deepseek不能超过128k），LangChain提供一些记忆管理策略来解决这个问题
+- 修剪：拿到消息历史后，先移除前N条或后N条消息，再调用模型
+- 删除：永久删除AgentState快照
+- 总结摘要：先总结历史消息中早期消息，得到消息摘要。然后用消息摘要和最近的消息形成消息列表，再调用模型
+- 自定义：自定义策略，例如工具用户问题筛选历史消息
+
+
+![2026-04-19-14-44-49.png](./images/2026-04-19-14-44-49.png)
+
+
+如果是发图片，把图片发给大模型是不现实的，因为会浪费大量token，所以需要引入oss服务
+
+![2026-04-19-15-11-49.png](./images/2026-04-19-15-11-49.png)
 
 # LangGraph
+
+
+# RAG
+学习的话直接用Ollama本地部署大模型
 
 
 # 资料
@@ -491,4 +578,5 @@ LangChain核心组件：
 - memory：https://learn.deeplearning.ai/courses/agent-memory-building-memory-aware-agents/lesson/zqxztf/introduction?startTime=4
 - LangChain：https://www.bilibili.com/video/BV178w1z7EHQ?spm_id_from=333.788.videopod.episodes&vd_source=c3939bba6fb53dcccb38ed988f16994c&p=14
 - 文档：https://docs.langchain.com/
-
+- https://blog.csdn.net/weixin_45032671/article/details/157393555?spm=1001.2014.3001.5501
+- RAG
