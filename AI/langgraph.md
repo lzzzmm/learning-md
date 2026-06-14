@@ -1,6 +1,6 @@
 # 入门教程
 
-LangGraph 是由 LangChain 团队开发的一个低层级 Agent 编排框架，专为构建有状态、长时运行的 AI 工作流而设计。
+LangGraph 是由 LangChain 团队开发的一个低层级 Agent 编排框架，专为构建有状态、长时运行的 AI 工作流而设计。langgraph不是一个独立框架，是langchain框架的一个生态组件。
 
 LangGraph 将工作流建模为有向图。
 
@@ -178,6 +178,13 @@ while True:
 ```
 
 ![2026-04-22-23-03-10.png](./images/2026-04-22-23-03-10.png)
+
+
+## 工具调用 - ReAct Agent
+
+让 Agent 具备使用外部工具的能力是 LangGraph 最强大的特性之一。
+
+ReAct（Reason + Act）：LLM 思考 -> 选择工具 -> 执行工具 -> 观察结果 -> 继续思考。
 
 
 
